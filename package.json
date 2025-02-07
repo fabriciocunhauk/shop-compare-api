@@ -1,0 +1,12 @@
+{
+  "name": "shop-compare-api",
+  "version": "1.0.0",
+  "description": "api that gets a supermarket receipt and builds a shop price compare list between supermarkets to give the user the best price and place to buy",
+  "main": "index.js",
+  "type": "module", 
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC"
+}
