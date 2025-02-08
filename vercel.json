@@ -2,9 +2,9 @@
   "version": 2,
   "name": "shop-compare-api", 
   "builds": [
-    { "src": "api/indexi.js", "use": "@vercel/node" }
+    { "src": "api/index.js", "use": "@vercel/node" }
   ],
   "routes": [
-    { "src": "/api/indexi", "dest": "/api/indexi.js" }
+    { "src": "/api/index", "dest": "/api/index.js" }
   ]
 }
