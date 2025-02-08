@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "name": "shop-compare-api", 
+  "builds": [
+    { "src": "api/indexi.js", "use": "@vercel/node" }
+  ],
+  "routes": [
+    { "src": "/api/indexi", "dest": "/api/indexi.js" }
+  ]
+}
