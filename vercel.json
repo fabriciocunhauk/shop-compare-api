@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "name": "shop-compare-api", 
   "builds": [
     { "src": "api/indexi.js", "use": "@vercel/node" }
