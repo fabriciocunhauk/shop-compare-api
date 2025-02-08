@@ -3,12 +3,7 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import bodyParser from 'body-parser';
-import {
-  createWorker
-} from 'tesseract.js';
-import {
-  exec
-} from 'child_process'; // Import exec for running Ollama CLI command
+import {createWorker} from 'tesseract.js';
 
 const app = express();
 app.use(bodyParser.json());
@@ -24,7 +19,6 @@ const storage = multer.diskStorage({
   }
 });
 
-// Initialize upload variable
 const upload = multer({
   storage: storage
 });
@@ -35,7 +29,6 @@ if (!fs.existsSync(dir)) {
   fs.mkdirSync(dir);
 }
 
-// Route to handle file upload
 app.post('/api/parse-receipt', upload.single('file'), async (req, res) => {
   try {
     const imagePath = req.file.path; // Path to the uploaded image
@@ -43,8 +36,8 @@ app.post('/api/parse-receipt', upload.single('file'), async (req, res) => {
     // Step 1: Use Tesseract.js to extract text from the image
     const extractedText = await extractTextFromImage(imagePath);
 
-    // Step 2: Use Ollama to parse the extracted text
-    const parsedData = await parseTextWithOllama(extractedText);
+    // Step 2: Parse the extracted text
+    const parsedData =  parseExtractedText(extractedText);
 
     // Delete the image from the uploads folder
     fs.unlinkSync(imagePath);
@@ -59,7 +52,6 @@ app.post('/api/parse-receipt', upload.single('file'), async (req, res) => {
   }
 });
 
-// Helper function: Extract text from the image using Tesseract.js
 async function extractTextFromImage(imagePath) {
   const worker = await createWorker('eng');
 
@@ -67,42 +59,13 @@ async function extractTextFromImage(imagePath) {
     data: {
       text
     }
-  } = await worker.recognize(imagePath); // Perform OCR
-  await worker.terminate(); // Clean up resources
+  } = await worker.recognize(imagePath); 
+  await worker.terminate(); 
 
   return text.trim();
 }
 
-// Helper function: Parse text using Ollama
-async function parseTextWithOllama(text) {
-  const prompt = `Extract the supermarket name, product name and price from the receipt text:${text}`;
-
-  try {
-    const response = await fetch("http://localhost:11434/api/generate", {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: "llama3.2",
-        prompt: prompt,
-        stream: false
-      }),
-    });
-
-    const data = await response.json();
-
-    // return data.response;
-    return parseOllamaResponse(data.response);
-  } catch (error) {
-    console.error('Error generating response:', error);
-    res.status(500).send('Internal Server Error');
-  }
-}
-
-// Helper function: Parse Ollama's response into structured data
-function parseOllamaResponse(response) {
-  // Example parsing logic (customize based on Ollama's output format)
+function parseExtractedText(response) {
   const lines = response.split('\n');
 
   const items = [];
@@ -112,9 +75,8 @@ function parseOllamaResponse(response) {
     console.log(line);
     
     if (line.includes('Supermarket')) {
-      supermarket = line.replace('Supermarket', '').trim();
+      supermarket = line.replace(/^.*:/, "").trim();
     } else if (line.includes('£')) {
-      // Regular expression to match the price
       const priceMatch = line.match(/£\d+\.\d+/); 
       const price = priceMatch[0];
 
@@ -133,7 +95,6 @@ function parseOllamaResponse(response) {
   };
 }
 
-// Start the server
 app.listen(port, () => {
   console.log(`Server started on http://localhost:${port}`);
 });
