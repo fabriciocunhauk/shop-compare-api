@@ -1,8 +1,9 @@
 import express from 'express';
 import multer from 'multer';
-import { createWorker } from 'tesseract.js';
-import { deleteImage, insertImage } from './database-postgres.js'; 
+import { deleteImage, getPriceList, insertImage, insertSupermarketData } from './database-postgres.js'; 
 import cors from 'cors';
+import { extractTextFromImage } from './extractTextFromImage.js';
+import { parseExtractedText } from './parseExtractedText.js';
 
 const app = express();
 app.use(cors()); 
@@ -20,6 +21,10 @@ app.post('/api/parse-receipt', upload.single('file'), async (req, res) => {
     const extractedText = await extractTextFromImage(image);
     const parsedData = parseExtractedText(extractedText);
 
+  for (const item of parsedData.items) {
+    await insertSupermarketData(parsedData.supermarket, item.name, item.price);
+  } 
+
     await deleteImage(result[0].id); 
     res.status(200).json(parsedData);
   } catch (error) {
@@ -28,36 +33,16 @@ app.post('/api/parse-receipt', upload.single('file'), async (req, res) => {
   }
 });
 
-async function extractTextFromImage(image) {
-  const worker = await createWorker('eng');
+app.get('/api/price-list', async (req, res) => {
+  try {
+    const priceList = await getPriceList();
 
-  const { data: { text } } = await worker.recognize(image); 
-
-  await worker.terminate();
-  return text.trim();
-}
-
-
-function parseExtractedText(text) { 
-  const lines = text.split('\n');
-  const items = [];
-  let supermarket = '';
-
-  for (const line of lines) { 
-    if (line.toLowerCase().includes('supermarket')) { 
-      supermarket = line.replace(/^.*:/, "").trim(); 
-    } else if (line.includes('£')) {
-      const priceMatch = line.match(/£\d+\.\d+/);
-      if (priceMatch) { 
-        const price = priceMatch[0];
-        const name = line.replace(/£\d+\.\d+/, "").trim();
-        items.push({ name, price });
-      }
-    }
+    res.status(200).json(priceList);
+  } catch (error) {
+    console.error("Error getting price list:", error); 
+    res.status(500).json({ error: 'An error occurred while getting price list.' });
   }
-
-  return { supermarket, items };
-}
+});
 
 app.listen({ host: '0.0.0.0', port: process.env.PORT ?? 3333 }, () => {
   console.log(`Server started on http://localhost:${port}`);
