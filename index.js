@@ -1,100 +1,62 @@
 import express from 'express';
 import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
-import bodyParser from 'body-parser';
-import {createWorker} from 'tesseract.js';
+import { createWorker } from 'tesseract.js';
+import { deleteImage, insertImage } from './database-postgres.js'; 
 
 const app = express();
-app.use(bodyParser.json());
-const port = 3000;
+const port = 3333;
 
-// Set up storage engine for multer
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, 'uploads/'); // Specify the directory where files will be stored
-  },
-  filename: function (req, file, cb) {
-    cb(null, Date.now() + path.extname(file.originalname)); // Rename the file to avoid name conflicts
-  }
-});
-
-const upload = multer({
-  storage: storage
-});
-
-// Create the uploads directory if it doesn't exist
-const dir = './uploads';
-if (!fs.existsSync(dir)) {
-  fs.mkdirSync(dir);
-}
+const storage = multer.memoryStorage();
+const upload = multer({ storage }); 
 
 app.post('/api/parse-receipt', upload.single('file'), async (req, res) => {
   try {
-    const imagePath = req.file.path; // Path to the uploaded image
+    const result = await insertImage(req.file.buffer); 
 
-    // Step 1: Use Tesseract.js to extract text from the image
-    const extractedText = await extractTextFromImage(imagePath);
+    const image = result[0].data;
 
-    // Step 2: Parse the extracted text
-    const parsedData =  parseExtractedText(extractedText);
+    const extractedText = await extractTextFromImage(image);
+    const parsedData = parseExtractedText(extractedText);
 
-    // Delete the image from the uploads folder
-    fs.unlinkSync(imagePath);
-
-    // Step 3: Return the parsed data to the frontend
+    await deleteImage(result[0].id); 
     res.status(200).json(parsedData);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({
-      error: 'An error occurred while processing the receipt.'
-    });
+    console.error("Error processing receipt:", error); 
+    res.status(500).json({ error: 'An error occurred while processing the receipt.' });
   }
 });
 
-async function extractTextFromImage(imagePath) {
+async function extractTextFromImage(image) {
   const worker = await createWorker('eng');
 
-  const {
-    data: {
-      text
-    }
-  } = await worker.recognize(imagePath); 
-  await worker.terminate(); 
+  const { data: { text } } = await worker.recognize(image); 
 
+  await worker.terminate();
   return text.trim();
 }
 
-function parseExtractedText(response) {
-  const lines = response.split('\n');
 
+function parseExtractedText(text) { 
+  const lines = text.split('\n');
   const items = [];
   let supermarket = '';
 
-  lines.forEach(line => {
-    console.log(line);
-    
-    if (line.includes('Supermarket')) {
-      supermarket = line.replace(/^.*:/, "").trim();
+  for (const line of lines) { 
+    if (line.toLowerCase().includes('supermarket')) { 
+      supermarket = line.replace(/^.*:/, "").trim(); 
     } else if (line.includes('£')) {
-      const priceMatch = line.match(/£\d+\.\d+/); 
-      const price = priceMatch[0];
-
-      const name = line.replace(/£\d+\.\d+/, "").trim();
-
-      items.push({
-        name,
-        price
-      });
+      const priceMatch = line.match(/£\d+\.\d+/);
+      if (priceMatch) { 
+        const price = priceMatch[0];
+        const name = line.replace(/£\d+\.\d+/, "").trim();
+        items.push({ name, price });
+      }
     }
-  });
+  }
 
-  return {
-    supermarket,
-    items,
-  };
+  return { supermarket, items };
 }
 
-app.listen(port, () => {
+app.listen({ port: process.env.PORT ?? 3333 }, () => {
   console.log(`Server started on http://localhost:${port}`);
 });
