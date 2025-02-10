@@ -57,6 +57,6 @@ function parseExtractedText(text) {
   return { supermarket, items };
 }
 
-app.listen({ port: process.env.PORT ?? 3333 }, () => {
+app.listen({ host: '0.0.0.0', port: process.env.PORT ?? 3333 }, () => {
   console.log(`Server started on http://localhost:${port}`);
 });
