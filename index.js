@@ -2,8 +2,10 @@ import express from 'express';
 import multer from 'multer';
 import { createWorker } from 'tesseract.js';
 import { deleteImage, insertImage } from './database-postgres.js'; 
+import cors from 'cors';
 
 const app = express();
+app.use(cors()); 
 const port = 3333;
 
 const storage = multer.memoryStorage();
