@@ -22,6 +22,8 @@ export async function insertImage( data ) {
 }
 
 export async function insertSupermarketData( supermarket_name, product_name, price ) {
+  if (!supermarket_name) return null;
+
   const existingData = await sql`
     SELECT * FROM supermarket WHERE supermarket_name = ${supermarket_name} AND product_name = ${product_name} AND price = ${price}
   `;
