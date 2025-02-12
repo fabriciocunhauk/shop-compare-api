@@ -10,7 +10,7 @@ export function parseExtractedText(text) {
       const priceMatch = line.match(/£\d+\.\d+/);
       if (priceMatch) { 
         const price = priceMatch[0];
-        const name = line.replace(/£\d+\.\d+/, "").trim();
+        const name = line.replace(/£\d+\.\d+/, "").trim().split(' ').filter(word => word.length > 2).join(' ');
         items.push({ name, price });
       }
     }
