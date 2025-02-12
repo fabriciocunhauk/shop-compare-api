@@ -22,7 +22,7 @@ app.post('/api/parse-receipt', upload.single('file'), async (req, res) => {
     const parsedData = parseExtractedText(extractedText);
 
   for (const item of parsedData.items) {
-    await insertSupermarketData(parsedData.supermarket, item.name, item.price);
+    await insertSupermarketData(parsedData.supermarket, item.name, parseFloat( item.price.replace('£', '')));
   } 
 
     await deleteImage(result[0].id); 

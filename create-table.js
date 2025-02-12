@@ -12,10 +12,10 @@ sql`
       id SERIAL PRIMARY KEY,
       supermarket_name VARCHAR(255) NOT NULL,
       product_name VARCHAR(255) NOT NULL,
-      price VARCHAR(10) NOT NULL          
+      price NUMERIC(10, 2) NOT NULL          
   );
 `.then(() => console.log('table created'));
 
 // sql`
-//   DROP TABLE images;
-// `.then(() => console.log('table created'));
+//   DROP TABLE supermarket;
+// `.then(() => console.log('table deleted'));
