@@ -4,7 +4,7 @@ export function parseExtractedText(text) {
   let supermarket = '';
 
   for (const line of lines) { 
-    if (line.toLowerCase().includes('supermarket')) { 
+    if (line.toLowerCase().includes('supermarket') || line.includes("TESCO")) { 
       supermarket = line.replace(/^.*:/, "").trim(); 
     } else if (line.includes('£')) {
       const priceMatch = line.match(/£\d+\.\d+/);
