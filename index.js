@@ -6,8 +6,10 @@ import { extractTextFromImage } from './extractTextFromImage.js';
 import { parseExtractedText } from './parseExtractedText.js';
 
 const app = express();
-app.use(cors()); 
 const port = 3333;
+app.use(cors()); 
+// helmet "Help secure Express apps by setting HTTP response headers."
+app.use(helmet());
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage }); 
