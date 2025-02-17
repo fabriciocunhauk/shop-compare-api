@@ -4,6 +4,7 @@ import { deleteImage, getPriceList, insertImage, insertSupermarketData } from '.
 import cors from 'cors';
 import { extractTextFromImage } from './extractTextFromImage.js';
 import { parseExtractedText } from './parseExtractedText.js';
+import helmet from 'helmet';
 
 const app = express();
 const port = 3333;
