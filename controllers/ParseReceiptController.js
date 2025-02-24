@@ -15,7 +15,6 @@ export async function ParseReceiptController(req, res) {
     }
 
     const image = result[0].data;
-
     const extractedText = await extractTextFromImage(image);
     const parsedData = parseExtractedText(extractedText);
 
