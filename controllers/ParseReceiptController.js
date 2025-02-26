@@ -1,35 +1,45 @@
-import { deleteImage, insertSupermarketData, insertImage } from "../models/database-postgres.js"; // Import insertImage
+import { deleteImage, insertSupermarketData, insertImage } from "../models/database-postgres.js";
 import { extractTextFromImage } from "../utils/extractTextFromImage.js";
 import { parseExtractedText } from "../utils/parseExtractedText.js";
+
+async function saveSupermarketData(supermarket, items) {
+  for (const item of items) {
+    const price = parseFloat(item.price.replace('£', ''));
+    await insertSupermarketData(supermarket, item.name, price);
+  }
+}
 
 export async function ParseReceiptController(req, res) {
   try {
     if (!req.file) {
-      return res.status(400).json({ error: 'No file uploaded.' });
+      return res.status(400).json({ error: "No file uploaded." });
     }
 
-    const result = await insertImage(req.file.buffer);
-
-    if (!result || result.length === 0 || !result[0].data || !result[0].id) {
-        return res.status(500).json({error:"image insertion failed or returned invalid data."});
+    const imageResult = await insertImage(req.file.buffer);
+    if (!imageResult?.[0]?.data || !imageResult?.[0]?.id) {
+      return res.status(500).json({ error: "Failed to process the uploaded image." });
     }
 
-    const image = result[0].data;
+    const { data: image, id: imageId } = imageResult[0];
+
     const extractedText = await extractTextFromImage(image);
+
+    console.log(extractedText);
+    
     const parsedData = parseExtractedText(extractedText);
 
-    if (parsedData && parsedData.items && parsedData.supermarket){
-      for (const item of parsedData.items) {
-          await insertSupermarketData(parsedData.supermarket, item.name, parseFloat(item.price.replace('£', '')));
-      }
-
-      await deleteImage(result[0].id);
-      res.status(200).json(parsedData);
-    } else {
-      res.status(500).json({error:"Receipt not uploaded. Please ensure the receipt is flat, does not display any balance or total, and clearly shows the supermarket name at the top."});
+    if (!parsedData?.items || !parsedData?.supermarket) {
+      await deleteImage(imageId); 
+      return res.status(500).json({ error: "Receipt not uploaded. Please Follow the instructions and try again!" });
     }
+
+    await saveSupermarketData(parsedData.supermarket, parsedData.items);
+
+    await deleteImage(imageId);
+
+    return res.status(200).json(parsedData);
   } catch (error) {
     console.error("Error processing receipt:", error);
-    res.status(500).json({ error: 'An error occurred while processing the receipt.' });
+    return res.status(500).json({ error: "An error occurred while processing the receipt." });
   }
 }
