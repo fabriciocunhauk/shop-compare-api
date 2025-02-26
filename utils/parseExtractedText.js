@@ -27,7 +27,7 @@ const supermarketPattern = /^(tesco|aldi stores|asda|lidl|sainsbury?s?|morrisons
       const [, quantity, rawName, price] = productMatch;
       
       // Clean up the product name: remove leading/trailing numbers and trim whitespace
-      let name = rawName.trim().replace(/^\d+\s*/, '').trim();
+      let name = rawName.replace(/£\d+\.\d+/, "").trim().split(' ').filter(word => word.length > 2).join(' ');
 
       // Ignore invalid product names (blank, single char, or just digits)
       if (!name || name.length <= 1 || /^\d+$/.test(name)) {
