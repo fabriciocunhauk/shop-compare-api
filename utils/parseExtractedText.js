@@ -4,8 +4,8 @@ export function parseExtractedText(text) {
   let supermarket = '';
   
   // Case-insensitive match for supermarket identifiers
-// const supermarketPattern = /^(tesco|aldi stores|asda|lidl|sainsbury['’]?s?|morrisons)$/i;
-const supermarketPattern = /^(tesco|aldi stores|asda|lidl|sainsbury?s?|morrisons)$/i;
+const supermarketPattern = /^(tesco|aldi stores|asda|lidl|sainsbury['’]?s?|morrisons)$/i;
+// const supermarketPattern = /^(tesco|aldi stores|asda|lidl|sainsbury?s?|morrisons)$/i;
 
   // Improved price matching with currency symbol and end-of-line anchor
   const pricePattern = /([£]?\d+\.\d{2})(?!\d)/;
