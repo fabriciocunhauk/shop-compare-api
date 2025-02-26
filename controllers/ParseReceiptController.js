@@ -26,7 +26,7 @@ export async function ParseReceiptController(req, res) {
       await deleteImage(result[0].id);
       res.status(200).json(parsedData);
     } else {
-      res.status(500).json({error:"parsed data invalid"});
+      res.status(500).json({error:"Receipt not uploaded. Please ensure the receipt is flat, does not display any balance or total, and clearly shows the supermarket name at the top."});
     }
   } catch (error) {
     console.error("Error processing receipt:", error);

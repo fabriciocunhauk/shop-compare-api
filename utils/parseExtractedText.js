@@ -4,21 +4,20 @@ export function parseExtractedText(text) {
   let supermarket = '';
   
   // Case-insensitive match for supermarket identifiers
-  const supermarketPattern = /(supermarket|tesco|aldi|asda|lidl|sainsbury|morrisons)/i;
+// const supermarketPattern = /^(tesco|aldi stores|asda|lidl|sainsbury['’]?s?|morrisons)$/i;
+const supermarketPattern = /^(tesco|aldi stores|asda|lidl|sainsbury?s?|morrisons)$/i;
+
   // Improved price matching with currency symbol and end-of-line anchor
-  const pricePattern = /([£€$]?\d+\.\d{2})(?!\d)/;
+  const pricePattern = /([£]?\d+\.\d{2})(?!\d)/;
   // Match product name with quantity (optional) and price
-  const productPattern = /(?:(\d+)\s*x?\s*)?(.+?)\s+([£€$]?\d+\.\d{2})$/i;
+  const productPattern = /(?:(\d+)\s*x?\s*)?(.+?)\s+([£]?\d+\.\d{2})$/i;
 
   for (const rawLine of lines) {
     const line = rawLine.trim();
     if (!line) continue;
 
-    // Extract supermarket name (prioritize text after colon if present)
     if (supermarketPattern.test(line)) {
-      supermarket = line.includes(':') 
-        ? line.split(':').slice(-1)[0].trim()
-        : line;
+      supermarket = line.replace(/^.*:/, "").trim();
       continue;
     }
 
@@ -75,7 +74,7 @@ export function parseExtractedText(text) {
   }
 
   return {
-    supermarket: supermarket.replace(/\s{2,}/g, ' '),
+    supermarket: supermarket,
     items: items.filter(item => item.name && item.price)
   };
 }
