@@ -7,9 +7,7 @@ export function parseExtractedText(text) {
 const supermarketPattern = /^(tesco|aldi stores|asda|lidl|sainsbury['’]?s?|morrisons)$/i;
 // const supermarketPattern = /^(tesco|aldi stores|asda|lidl|sainsbury?s?|morrisons)$/i;
 
-  // Improved price matching with currency symbol and end-of-line anchor
   const pricePattern = /([£]?\d+\.\d{2})(?!\d)/;
-  // Match product name with quantity (optional) and price
   const productPattern = /(?:(\d+)\s*x?\s*)?(.+?)\s+([£]?\d+\.\d{2})$/i;
 
   for (const rawLine of lines) {
