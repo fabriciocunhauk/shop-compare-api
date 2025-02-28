@@ -3,7 +3,7 @@ export function parseExtractedText(text) {
   const items = [];
   let supermarket = '';
 
-  const supermarketPattern = /^(tesco|aldi stores|asda)$/i;
+  const supermarketPattern = /^(tesco|aldi stores|asda|LeDL)$/i;
   const pricePattern = /([£]?\d+\.\d{2})(?!\d)/;
   const productPattern = /(?:(\d+)\s*x?\s*)?(.+?)\s+([£]?\d+\.\d{2})$/i;
 
@@ -53,8 +53,8 @@ export function parseExtractedText(text) {
     const line = rawLine.trim();
     if (!line) continue;
 
-    if (supermarketPattern.test(line) || line.includes("GB275834273") || line.includes("343475355") || line.includes("660 4548 36")) {
-      if (line.includes("GB275834273")) {
+    if (supermarketPattern.test(line) || line.includes("VAT NO. GB350396892") || line.includes("343475355") || line.includes("660 4548 36")) {
+      if (line.includes("VAT NO. GB350396892")) {
         supermarket = "LIDL";
       } else if (line.includes("343475355")) {
         supermarket = "Morrisons";
