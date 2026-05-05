@@ -1,10 +1,32 @@
-import { createWorker } from 'tesseract.js';
+import { createWorker, createScheduler, PSM } from 'tesseract.js';
 
-export  async function extractTextFromImage(image) {
-  const worker = await createWorker('eng');
+const scheduler = createScheduler();
+let initPromise = null;
 
-  const { data: { text } } = await worker.recognize(image); 
+async function initScheduler() {
+  if (initPromise) return initPromise;
 
-  await worker.terminate();
+  initPromise = (async () => {
+    // Create a persistent worker (can be scaled by adding more workers to the scheduler if needed)
+    const worker = await createWorker('eng');
+    
+    // We let Tesseract use its default PSM (AUTO), because SINGLE_COLUMN was completely missing the prices on the right side of the receipt.
+    // await worker.setParameters({
+    //   tessedit_pageseg_mode: PSM.AUTO,
+    // });
+    
+    scheduler.addWorker(worker);
+  })();
+
+  return initPromise;
+}
+
+export async function extractTextFromImage(image) {
+  // Ensure the scheduler is initialized once
+  await initScheduler();
+
+  // Use the scheduler to handle concurrent requests
+  const { data: { text } } = await scheduler.addJob('recognize', image); 
+  
   return text.trim();
 }

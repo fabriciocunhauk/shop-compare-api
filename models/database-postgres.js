@@ -25,17 +25,28 @@ export async function insertSupermarketData( supermarket_name, product_name, pri
   if (!supermarket_name) return null;
   if (!product_name) return null;
 
-  const existingData = await sql`
-    SELECT * FROM supermarket WHERE supermarket_name = ${supermarket_name} AND product_name = ${product_name} AND price = ${price}
+  const existingProducts = await sql`
+    SELECT * FROM supermarket WHERE supermarket_name = ${supermarket_name} AND product_name = ${product_name}
   `;
 
-  if (existingData.length === 0) {
-    const supermarketData = await sql`
+  if (existingProducts.length > 0) {
+    const existing = existingProducts[0];
+    if (parseFloat(existing.price) !== parseFloat(price)) {
+      // Update the price to the new one
+      const updated = await sql`
+        UPDATE supermarket SET price = ${price}, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ${existing.id} RETURNING *
+      `;
+      return updated;
+    } else {
+      // Price is the same, no action needed
+      return existing;
+    }
+  } else {
+    // Insert new product
+    const newProduct = await sql`
       INSERT INTO supermarket (supermarket_name, product_name, price) VALUES (${supermarket_name}, ${product_name}, ${price}) RETURNING *
     `;
-
-    return supermarketData;
-  } else {
-    return existingData;
+    return newProduct;
   }
 }

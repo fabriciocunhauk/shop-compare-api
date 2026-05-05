@@ -23,6 +23,10 @@ export async function ParseReceiptController(req, res) {
     const { data: image, id: imageId } = imageResult[0];
 
     const extractedText = await extractTextFromImage(image);
+    
+    // Debug: log the extracted text to a file so we can see what OCR actually saw
+    import('fs').then(fs => fs.writeFileSync('debug_ocr.txt', extractedText));
+    
     const parsedData = parseExtractedText(extractedText);
 
     if (!parsedData?.items || !parsedData?.supermarket) {
