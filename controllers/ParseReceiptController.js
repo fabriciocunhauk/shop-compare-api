@@ -1,12 +1,9 @@
-import { deleteImage, insertSupermarketData, insertImage } from "../models/database-postgres.js";
+import { deleteImage, insertSupermarketDataBatch, insertImage } from "../models/database-postgres.js";
 import { extractTextFromImage } from "../utils/extractTextFromImage.js";
 import { parseExtractedText } from "../utils/parseExtractedText.js";
 
 async function saveSupermarketData(supermarket, items) {
-  for (const item of items) {
-    const price = parseFloat(item.price.replace('£', ''));
-    await insertSupermarketData(supermarket, item.name, price);
-  }
+  await insertSupermarketDataBatch(supermarket, items);
 }
 
 export async function ParseReceiptController(req, res) {

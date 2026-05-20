@@ -7,8 +7,11 @@ async function initScheduler() {
   if (initPromise) return initPromise;
 
   initPromise = (async () => {
-    // Create a persistent worker (can be scaled by adding more workers to the scheduler if needed)
-    const worker = await createWorker('eng');
+    // Create a persistent worker using the local eng.traineddata cache
+    const worker = await createWorker('eng', 1, {
+      cachePath: '.',
+      gzip: false
+    });
     
     // We let Tesseract use its default PSM (AUTO), because SINGLE_COLUMN was completely missing the prices on the right side of the receipt.
     // await worker.setParameters({

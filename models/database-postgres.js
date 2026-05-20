@@ -50,3 +50,54 @@ export async function insertSupermarketData( supermarket_name, product_name, pri
     return newProduct;
   }
 }
+
+export async function insertSupermarketDataBatch(supermarket_name, items) {
+  if (!supermarket_name || !items || items.length === 0) return [];
+
+  // Fetch all existing products for this supermarket in a single query
+  const existingProducts = await sql`
+    SELECT * FROM supermarket WHERE supermarket_name = ${supermarket_name}
+  `;
+
+  // Map by product_name (lowercase trimmed for case-insensitive safe lookup)
+  const existingMap = new Map();
+  for (const prod of existingProducts) {
+    existingMap.set(prod.product_name.toLowerCase().trim(), prod);
+  }
+
+  const dbOperations = [];
+
+  for (const item of items) {
+    if (!item.name) continue;
+    const price = parseFloat(item.price.replace('£', ''));
+    const itemNameClean = item.name.trim();
+    const existing = existingMap.get(itemNameClean.toLowerCase());
+
+    if (existing) {
+      if (parseFloat(existing.price) !== price) {
+        dbOperations.push(
+          sql`
+            UPDATE supermarket 
+            SET price = ${price}, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ${existing.id} RETURNING *
+          `
+        );
+      }
+    } else {
+      dbOperations.push(
+        sql`
+          INSERT INTO supermarket (supermarket_name, product_name, price) 
+          VALUES (${supermarket_name}, ${itemNameClean}, ${price}) RETURNING *
+        `
+      );
+    }
+  }
+
+  if (dbOperations.length > 0) {
+    // Run all insert/update operations concurrently via connection pool
+    const results = await Promise.all(dbOperations);
+    return results.flat();
+  }
+
+  return [];
+}
