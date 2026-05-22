@@ -1,32 +1,17 @@
 /**
- * fix-product-names.js
- *
- * One-off script to normalise garbled OCR product names already in the database.
- * Run with:  node fix-product-names.js
- *
- * Each entry is: [SQL ILIKE pattern, replacement string]
- * The script runs an UPDATE for every mapping and reports how many rows changed.
+ * utils/normalizer.js
+ * 
+ * Reusable product name normalizer incorporating the cleanup rules from fix-product-names.js.
  */
 
-import postgres from 'postgres';
-import 'dotenv/config';
-
-const sql = postgres(process.env.DATABASE_URL, { ssl: 'require' });
-
-// ---------------------------------------------------------------------------
-// Replacement rules — ordered from most specific to most general so broader
-// patterns don't interfere with narrower ones.
-// Each rule: [pattern (used in ILIKE), replacement]
-// We use regexp_replace on the DB side for flexibility.
-// ---------------------------------------------------------------------------
-const rules = [
+export const rules = [
   // ── Dairy ──────────────────────────────────────────────────────────────
   { match: /\bS\/SKIM\s*MLK\b/i,              to: 'Semi Skimmed Milk' },
   { match: /\bS\/SKIM\b/i,                    to: 'Semi Skimmed' },
   { match: /\bSEMI\s*SKIM(?:MED)?\s*MILK\b/i, to: 'Semi Skimmed Milk' },
   { match: /\bSEMI\s*SKIM(?:MED)?\b/i,        to: 'Semi Skimmed' },
   { match: /\bSKIM\s*MI\b/i,                  to: 'Skimmed Milk' },
-  { match: /\bW\.CounS\.\s*SkimMi\s*lk\b/i,  to: 'Skimmed Milk' },
+  { match: /\bW\.CounS\.\s*Skim(?:med)?\s*(?:Mi\s*lk|Milk|Mlk)\b/i, to: 'Skimmed Milk' },
   { match: /\bMLK\b/i,                        to: 'Milk' },
   { match: /\bELHLEA\b/i,                     to: 'Elmlea' },
   { match: /\bELMLEA\s*DBLE\b/i,              to: 'Elmlea Double Cream' },
@@ -67,11 +52,13 @@ const rules = [
 
   { match: /\bSTWB\b/i,                       to: 'Strawberry' },
   { match: /\bSTRA?W?BS?\b/i,                 to: 'Strawberries' },
+  { match: /\bSTRAWB\b/i,                     to: 'Strawberry' },
   { match: /\bSIRAHBS\b/i,                    to: 'Strawberries' },
   { match: /\bI'M\s*STRAWBERRIES\b/i,         to: 'Strawberries' },
   { match: /\bH\s*STRAWBERRIES\b/i,           to: 'Strawberries' },
   { match: /\bSTRAWBERRIES\b/i,               to: 'Strawberries' },
-  { match: /\bJS\s*STRAWBS?\b/i,              to: "Sainsbury's Strawberries" },
+  { match: /\bJS\s*STRAWBS\b/i,               to: "Sainsbury's Strawberries" },
+  { match: /\bJS\s*STRAWB\b/i,                to: "Sainsbury's Strawberry" },
   { match: /\bSAS\s*BABY\s*PLUM\b/i,          to: 'Baby Plum Tomatoes' },
   { match: /\bTESCO\s*EXPRESS\s*BABY\s*PLUM(?:\s*TOMATO(?:ES)?)?\b/i, to: 'Baby Plum Tomatoes' },
 
@@ -109,6 +96,7 @@ const rules = [
   { match: /\bBABY\s*COURGETTES\b/i,          to: 'Baby Courgettes' },
   { match: /\bCARROTS\b/i,                    to: 'Carrots' },
   { match: /\bONIONS\b/i,                    to: 'Onions' },
+  { match: /\bSSTC\s*APPLES\s*XB\b/i,         to: 'Apples' },
 
   { match: /\bLARGE\s*CUCUMBER\s*\w*\b/i,    to: 'Large Cucumber' },
   { match: /\bWHOLE\s*CUCUMBER\b/i,           to: 'Whole Cucumber' },
@@ -119,19 +107,20 @@ const rules = [
   { match: /\bSSIS\s*SPRING\s*ONION\b/i,     to: 'Spring Onion' },
   { match: /\bSPRNG\s*ONION\b/i,             to: 'Spring Onion' },
   { match: /\bONION\s*&\s*GARLIC\s*SCE\b/i,  to: 'Onion and Garlic Sauce' },
-  { match: /\bUSBABYCORN\b/i,                 to: 'Baby Corn' },
+  { match: /\b(?:JS|US)?\s*BABYCORN\b/i,      to: 'Baby Corn' },
   { match: /\bCORN\s*COBETTES\b/i,            to: 'Corn Cobettes' },
-  { match: /\bBST\s*GREEN\s*BEANS\b/i,        to: 'Green Beans' },
+  { match: /\b(?:BST|TBST)\s*GREEN\s*BEANS\b/i, to: 'Green Beans' },
   { match: /\bM\s*FRESH\s*CHIVES\b/i,         to: 'Fresh Chives' },
   { match: /\bLEMONS\s*UNWAXED\b/i,           to: 'Unwaxed Lemons' },
   { match: /\bUNWAXED\s*LEHON\b/i,            to: 'Unwaxed Lemon' },
+  { match: /\bBROCCOLI(?:\s*LOOSE)?\b/i,      to: 'Broccoli' },
   { match: /\bBROCOLI\b/i,                    to: 'Broccoli' },
   { match: /\bCARROTS\s*\d+\w*\b/i,          to: 'Carrots' },
   { match: /\bBABY\s*POTATOES\b/i,            to: 'Baby Potatoes' },
   { match: /\bSWEETCORN\b/i,                  to: 'Sweetcorn' },
   { match: /\bTINNED\s*SWEETCORN\b/i,         to: 'Tinned Sweetcorn' },
   { match: /\bTWO\s*TONE\s*GARLI(?:C)?\b/i,    to: 'Two Tone Garlic' },
-  { match: /(?<!\bTWO\s+)TONE\s*GARLIC\b/i,   to: 'Garlic' },
+  { match: /(?<!\bTWO\s+)TONE\s*GARLI(?:C)?\b/i, to: 'Garlic' },
   { match: /\bGARLIC\b/i,                     to: 'Garlic' },
 
   // ── Meat ───────────────────────────────────────────────────────────────
@@ -143,8 +132,8 @@ const rules = [
   { match: /\bTESCO\s*CHICKEN\s*BREAST\b/i,  to: 'Chicken Breast' },
   { match: /\bCHICKENBREST\s*FILLET\b/i,     to: 'Chicken Breast Fillet' },
   { match: /\bCHICKEN\s*BREAST\s*FILLET\b/i, to: 'Chicken Breast Fillet' },
-  { match: /\bBERNARD\s*MATHEWS\b/i,         to: 'Bernard Matthews' },
-  { match: /\bBERNARD\s*MATTHEWS?\b/i,       to: 'Bernard Matthews' },
+  { match: /\bBERNARD\s*MAT[T]?HEWS(?:\s*SLI)?\b/i, to: 'Bernard Matthews' },
+  { match: /\bTHIN\s*COOKED\s*HAM\b/i,        to: 'Thin Cooked Ham' },
   { match: /\bM\s*STEAK\s*MINCE\b/i,         to: 'Steak Mince' },
   { match: /\bH\s*SALM\+CHEESE\s*S\/W\b/i,   to: 'Salmon and Cheese Sandwich' },
   { match: /\bSALM\s*CUCUMBER\s*S\/W\b/i,    to: 'Salmon and Cucumber Sandwich' },
@@ -195,6 +184,8 @@ const rules = [
   { match: /\bANTIPASTO\b/i,                  to: 'Antipasto' },
   { match: /\bHP\s*SAUCE\s*HANDY\s*PACK\b/i,  to: 'HP Sauce' },
   { match: /\bLOTUS\s*BISCOFF\b/i,            to: 'Lotus Biscoff Biscuits' },
+  { match: /\b(?:H\s+)?BOURBECK(?:\s*CREAM)?\b/i, to: 'Bourbon Creams' },
+  { match: /\bSTRAMBERRY\s*CONSERVE\b/i,      to: 'Strawberry Conserve' },
   { match: /\bM\s*SOFT\s*CHEESE\b/i,          to: 'Soft Cheese' },
   { match: /\bSOFT\s*CHEESE\b/i,              to: 'Soft Cheese' },
   { match: /\bCOUNTRY\s*BUTTER\b/i,           to: 'Butter' },
@@ -241,8 +232,12 @@ const rules = [
   { match: /\bLENOR\s*FAB\/ENHANCER\b/i,      to: 'Fabric Conditioner' },
   { match: /\bFAIR\s*HAND\s*DISHWASH\b/i,    to: 'Washing Up Liquid' },
   { match: /\bCIF\s*FLOOR\s*CLEANER\b/i,     to: 'Floor Cleaner' },
-  { match: /\bMARI\s*GOLD\s*GLOVES\b/i,      to: 'Marigold Gloves' },
-  { match: /\bMARI\s*GOLD\b/i,               to: 'Marigold Gloves' },
+  { match: /\bMARI\s*GOLD(?:\s*GLOVES)?\b/i, to: 'Marigold Gloves' },
+  { match: /\bSOUR\s*PATCH\s*(?:K10S|KIDS)\b/i, to: 'Sour Patch Kids' },
+  { match: /\bNUTHEG\s*DITSY\s*HUG\b/i,      to: 'Nutmeg Ditsy Mug' },
+  { match: /\bNUTHEG\s*HEART\s*HUG\b/i,      to: 'Nutmeg Heart Mug' },
+  { match: /\bNUTHEG\s*HOME\s*(?:Boul|BOWL)\b/i, to: 'Nutmeg Home Bowl' },
+  { match: /\bNUTHEG\b/i,                     to: 'Nutmeg' },
   { match: /\bBIN\s*LINERS\b/i,              to: 'Bin Liners' },
   { match: /\bREFUSE\s*SACK\b/i,             to: 'Refuse Sacks' },
   { match: /\bBAG\s*FOR\s*LIFE\b/i,          to: 'Bag for Life' },
@@ -252,192 +247,42 @@ const rules = [
   { match: /\b(?:JS\s+)?(?:FOOD\s+)?BAGS\b/i, to: 'Food Bags' },
 ];
 
-// ---------------------------------------------------------------------------
-// Phase 2 — Direct price corrections (confirmed from receipt photo)
-// ---------------------------------------------------------------------------
-const priceCorrections = [
-  // Confirmed from Morrisons receipt photo: unit price is £7.75, not £2.70
-  { id: 23, name: 'YELLOW TAIL JAM/RED', correctPrice: 7.75 },
-  // Andrew Peace Shiraz confirmed at £2.13
-  // (IDs may vary — match by name across Morrisons)
-];
+/**
+ * Normalizes raw scanned product names using the rules directory.
+ * Includes pre-cleaning steps to resolve conjoined prefixes like JSBABYCORN.
+ * 
+ * @param {string} rawName 
+ * @returns {string} Normalized product name
+ */
+export function normalizeProductName(rawName) {
+  if (!rawName) return '';
 
-// ---------------------------------------------------------------------------
-// Phase 3 — Garbage rows to delete by ID (non-grocery / receipt metadata)
-// ---------------------------------------------------------------------------
-const garbageIds = [
-  7,   // CHS RAINCOAT (clothing)
-  41,  // TV & SATELITE MAG (magazine)
-  50,  // SWINDON ADVERTISER (newspaper)
-  56,  // CREATOR PAPER SHAPES (stationery)
-  89,  // NUTMEG DITSY MUG (homeware)
-  90,  // NUTHEG HEART MUG (homeware)
-  97,  // 3PK GREY H&T BRAMBLE (clothing)
-  98,  // W DESSERT COLLECTION (ambiguous non-food)
-  109, // ORIGINAL PRICE (receipt metadata)
-  129, // 0416 /kg (weight line)
-  130, // GINAL PRICE (OCR of "original price")
-  147, // BTS 2PK UNISEX (clothing)
-  148, // 1PK UNISEX SHEA (clothing/toiletry)
-  151, // ORIGINAL PRICE (receipt metadata)
-  152, // USBABYCORN — will be fixed to Baby Corn by name rules
-  188, // al 1 BRAWN (garbled — duplicate of id 33 BRAWN)
-  277, // Legging Black M40 42 (clothing)
-  296, // 0.434 (weight/price fragment)
-];
+  let clean = rawName.replace(/^(JS|TTD|J5|3S|US|TD)(?=[A-Z])/g, '$1 ')
+                      .replace(/^(js|ttd|j5|3s|us|td)(?=[a-z])/g, '$1 ')
+                      .trim();
 
-// ---------------------------------------------------------------------------
-// Phase 4 — Missing products to insert (confirmed from receipt photo)
-// ---------------------------------------------------------------------------
-const missingProducts = [
-  { supermarket: 'Morrisons', name: 'Martini Bianco',    price: 11.75 },
-  { supermarket: 'Morrisons', name: 'Popchips Sour Cream', price: 2.25 },
-  { supermarket: 'Morrisons', name: 'Andrew Peace Shiraz', price: 2.13 },
-];
+  // Clean up punctuation noise like underscores and commas
+  clean = clean.replace(/_/g, ' ').replace(/,/g, '').trim();
 
-// ---------------------------------------------------------------------------
-// Main
-// ---------------------------------------------------------------------------
-async function main() {
-  console.log('🔧 Connecting to database...\n');
-  let totalUpdated = 0;
+  // Strip generic trailing numeric noise (like misread weights e.g. 1505 or 4006)
+  clean = clean.replace(/\s+\d+[a-zA-Z]*$/, '').trim();
 
-  // ── Phase 1: Fix product names ──────────────────────────────────────────
-  console.log('── Phase 1: Normalising product names ──');
-  const allRows = await sql`SELECT id, product_name FROM supermarket`;
-
+  // 2. Apply all structural replacement rules
   for (const rule of rules) {
-    const toUpdate = allRows.filter(r => rule.match.test(r.product_name));
-    for (const row of toUpdate) {
-      const newName = row.product_name.replace(rule.match, rule.to).replace(/\s{2,}/g, ' ').trim();
-      if (!newName || newName === row.product_name) continue;
-      await sql`
-        UPDATE supermarket
-        SET product_name = ${newName}, updated_at = CURRENT_TIMESTAMP
-        WHERE id = ${row.id}
-      `;
-      console.log(`  ✅ [${row.id}] "${row.product_name}" → "${newName}"`);
-      totalUpdated++;
-    }
+    clean = clean.replace(rule.match, rule.to);
   }
 
-  // ── Phase 2: Fix confirmed wrong prices ─────────────────────────────────
-  console.log('\n── Phase 2: Correcting wrong prices ──');
-  for (const fix of priceCorrections) {
-    const result = await sql`
-      UPDATE supermarket
-      SET price = ${fix.correctPrice}, updated_at = CURRENT_TIMESTAMP
-      WHERE id = ${fix.id}
-      RETURNING id, product_name, price
-    `;
-    if (result.length > 0) {
-      console.log(`  💰 [${fix.id}] "${fix.name}" price corrected → £${fix.correctPrice}`);
-    }
-  }
+  // 3. Strip remaining store prefixes if they are still at the start (e.g. JS BABYCORN -> BABYCORN if not matched by rule)
+  clean = clean.replace(/^(JS|J5|3S|US|TTD|TD|M|Tesco|H|LH|1H|1M)\s+/i, '').trim();
 
-  // Also fix by name pattern for Morrisons where price > £15 (OCR read subtotal as unit price)
-  const impossiblePrices = await sql`
-    SELECT id, product_name, price FROM supermarket
-    WHERE CAST(price AS NUMERIC) > 20
-  `;
-  for (const row of impossiblePrices) {
-    console.log(`  ⚠️  [${row.id}] "${row.product_name}" has suspicious price £${row.price} — deleting`);
-  }
-  if (impossiblePrices.length > 0) {
-    const ids = impossiblePrices.map(r => r.id);
-    await sql`DELETE FROM supermarket WHERE id = ANY(${ids})`;
-    console.log(`  🗑  Deleted ${impossiblePrices.length} rows with impossible prices (>£20)`);
-  }
+  // Strip single-character leading noise (e.g. "i The Best..." -> "The Best...")
+  clean = clean.replace(/^[a-zA-Z]\s+/, '').trim();
 
-  // ── Phase 3: Delete garbage rows ────────────────────────────────────────
-  console.log('\n── Phase 3: Removing garbage rows ──');
+  // 4. Post-cleaning: strip conjoined spaces, clean remaining weird OCR artifacts
+  clean = clean.replace(/\s{2,}/g, ' ')
+               .replace(/^[^A-Za-z0-9(]+/, '') // leading punctuation (excluding opening bracket)
+               .replace(/[^A-Za-z0-9)]+$/, '') // trailing punctuation (excluding closing bracket)
+               .trim();
 
-  // Delete by known bad IDs
-  if (garbageIds.length > 0) {
-    const deleted = await sql`
-      DELETE FROM supermarket WHERE id = ANY(${garbageIds}) RETURNING id, product_name
-    `;
-    deleted.forEach(r => console.log(`  🗑  [${r.id}] "${r.product_name}"`));
-    console.log(`  Removed ${deleted.length} non-grocery/metadata rows`);
-  }
-
-  // Delete by pattern (receipt metadata, weight lines, etc.)
-  const patternDeleted = await sql`
-    DELETE FROM supermarket
-    WHERE
-      length(trim(product_name)) < 3
-      OR product_name ~ '^[0-9./ ]+$'
-      OR product_name ILIKE 'original price%'
-      OR product_name ILIKE 'ginal price%'
-      OR product_name ILIKE '%/kg'
-      OR product_name ILIKE '0.%'
-      OR product_name ILIKE '%vat number%'
-      OR product_name ILIKE 'explore. graves'
-      OR product_name ILIKE 'al 1 %'
-    RETURNING id, product_name
-  `;
-  patternDeleted.forEach(r => console.log(`  🗑  [${r.id}] "${r.product_name}" (pattern match)`));
-  console.log(`  Removed ${patternDeleted.length} additional garbage rows by pattern`);
-
-  // ── Phase 4: Deduplicate ────────────────────────────────────────────────
-  console.log('\n── Phase 4: Deduplicating ──');
-  // Keep only the most recently updated row per variation (supermarket_name, product_name, size_value, size_unit, size_pack)
-  const dupeDeleted = await sql`
-    DELETE FROM supermarket
-    WHERE id NOT IN (
-      SELECT DISTINCT ON (
-        LOWER(TRIM(supermarket_name)), 
-        LOWER(TRIM(product_name)), 
-        COALESCE(size_value, 0), 
-        COALESCE(size_unit, ''), 
-        COALESCE(size_pack, 0)
-      )
-        id
-      FROM supermarket
-      ORDER BY 
-        LOWER(TRIM(supermarket_name)), 
-        LOWER(TRIM(product_name)), 
-        COALESCE(size_value, 0), 
-        COALESCE(size_unit, ''), 
-        COALESCE(size_pack, 0), 
-        updated_at DESC
-    )
-    RETURNING id, supermarket_name, product_name
-  `;
-  if (dupeDeleted.length > 0) {
-    dupeDeleted.forEach(r => console.log(`  🔁 [${r.id}] Dupe removed: "${r.product_name}" @ ${r.supermarket_name}`));
-    console.log(`  Removed ${dupeDeleted.length} duplicate rows`);
-  } else {
-    console.log('  No duplicates found.');
-  }
-
-  // ── Phase 5: Insert missing products ────────────────────────────────────
-  console.log('\n── Phase 5: Inserting missing products ──');
-  for (const item of missingProducts) {
-    const existing = await sql`
-      SELECT id FROM supermarket
-      WHERE LOWER(TRIM(supermarket_name)) = LOWER(TRIM(${item.supermarket}))
-        AND LOWER(TRIM(product_name)) = LOWER(TRIM(${item.name}))
-        AND size_value IS NULL
-        AND size_unit IS NULL
-        AND size_pack IS NULL
-    `;
-    if (existing.length === 0) {
-      await sql`
-        INSERT INTO supermarket (supermarket_name, product_name, price)
-        VALUES (${item.supermarket}, ${item.name}, ${item.price})
-      `;
-      console.log(`  ➕ Inserted "${item.name}" @ ${item.supermarket} — £${item.price}`);
-    } else {
-      console.log(`  ⏭  Already exists: "${item.name}" @ ${item.supermarket}`);
-    }
-  }
-
-  console.log(`\n✨ Done. ${totalUpdated} names normalised.`);
-  await sql.end();
+  return clean;
 }
-
-main().catch(err => {
-  console.error('❌ Error:', err.message);
-  process.exit(1);
-});

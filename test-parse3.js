@@ -1,115 +1,4 @@
-const parseExtractedText = (text) => {
-  const lines = text.split('\n');
-  const items = [];
-  let supermarket = '';
-
-  const supermarketPattern = /^(tesco|aldi stores|asda|LeDL|Lidl|Sainsbury's|Morrisons)$/i;
-  
-  let pendingQuantity = 1;
-
-  for (let i = 0; i < lines.length; i++) {
-    let line = lines[i].trim();
-    if (!line) continue;
-
-    if (!supermarket) {
-      if (supermarketPattern.test(line) || line.includes("VAT NO. GB350396892") || line.includes("343475355") || line.includes("660 4548 36")) {
-        if (line.includes("VAT NO. GB350396892") || line.toLowerCase().includes("lidl")) {
-          supermarket = "Lidl";
-        } else if (line.includes("343475355") || line.toLowerCase().includes("morrisons")) {
-          supermarket = "Morrisons";
-        } else if (line.includes("660 4548 36") || line.toLowerCase().includes("sainsbury")) {
-          supermarket = "Sainsburys";
-        } else if (line.toLowerCase().includes("aldi")) {
-          supermarket = "Aldi";
-        } else if (line.toLowerCase().includes("tesco")) {
-          supermarket = "Tesco";
-        } else if (line.toLowerCase().includes("asda")) {
-          supermarket = "Asda";
-        } else {
-          supermarket = line.replace(/^.*:/, "").trim();
-        }
-        continue;
-      }
-    }
-
-    const lowerLine = line.toLowerCase();
-    if (
-      lowerLine.includes('saving') || 
-      lowerLine.includes('reduction') || 
-      lowerLine.includes('original price') ||
-      lowerLine.includes('balance') ||
-      lowerLine.includes('total') ||
-      lowerLine.includes('change') ||
-      lowerLine.includes('card') ||
-      lowerLine.includes('visa') ||
-      lowerLine.includes('mastercard') ||
-      lowerLine.includes('vat number') ||
-      lowerLine.includes('manager') ||
-      lowerLine.includes('customer service') ||
-      lowerLine.includes('amount') ||
-      lowerLine.includes('description') ||
-      lowerLine.includes('qty ') ||
-      lowerLine.includes('subtotal')
-    ) {
-      continue;
-    }
-
-    // "2 x 2.69" or "2 x"
-    const aldiQtyMatch = line.match(/^(\d+)\s*x(?:\s*[£]?\d+\.\d{2})?$/i);
-    if (aldiQtyMatch) {
-      pendingQuantity = parseInt(aldiQtyMatch[1], 10);
-      continue;
-    }
-
-    // Match prices correctly (must be preceded by space or start, and followed by space or end)
-    const prices = [...line.matchAll(/(?:^|\s)[£]?(\d+\.\d{2})(?=\s|$|[A-Za-z]\s*$)/g)].map(m => m[1]);
-    
-    if (prices.length > 0) {
-      let namePart = line;
-      for (const p of prices) {
-         namePart = namePart.replace(new RegExp(`[£]?${p}(?:\\s+[A-Z])?$`, 'i'), '').trim();
-         namePart = namePart.replace(new RegExp(`(?:^|\\s)[£]?${p}(?=\\s|$)`, 'g'), '').trim();
-      }
-
-      if (!namePart || /^[A-Z]$/i.test(namePart)) continue;
-
-      let qty = pendingQuantity;
-      const codeMatch = namePart.match(/^(\d+)\s+(.+)$/);
-      if (codeMatch) {
-         const num = parseInt(codeMatch[1], 10);
-         // If it's a small number, it's a quantity
-         if (num < 100) {
-           qty = num;
-         }
-         // Either way, remove it from name if it's a number at the start (could be product code)
-         namePart = codeMatch[2];
-      }
-
-      // Remove trailing single characters (VAT flags)
-      namePart = namePart.replace(/\s+[a-zA-Z]$/, '').trim();
-      // Remove store prefixes
-      namePart = namePart.replace(/^(JS|M|TTD)\s+/i, '').trim();
-      namePart = namePart.replace(/^\*/, '').trim(); // Remove leading *
-
-      if (namePart.length > 2) {
-         const priceStr = `£${prices[0]}`; // First price. For Morrisons it's the unit price. For Aldi it might be total, but that's fine.
-         if (!items.some(item => item.name === namePart)) {
-           items.push({
-             name: namePart,
-             price: priceStr,
-             ...(qty > 1 && { quantity: qty })
-           });
-         }
-      }
-      pendingQuantity = 1;
-    }
-  }
-
-  return {
-    supermarket: supermarket || "Unknown",
-    items: items
-  };
-}
+import { parseExtractedText } from './utils/parseExtractedText.js';
 
 const morrisons = `
 Morrisons
@@ -118,7 +7,9 @@ VAT Number 343475355
 1 M SEMI SKIMMED MILK £2.15 £2.15 F
 1 M FRUIT JUICE £2.20 £2.20 A
 2 ANDREW PEACE SHIRAZ £2.13 £4.26 A
-1 SILVER SPOON SUGAR £1.19 £1.19 F
+1 SILVER SPOON SUGAR £1.75 £1.75 F
+1 SILVER SPOON SUGAR £1.09 £1.09 F
+M Bananas 1.220 Kg X £0.99/kg £1.21 F
 `;
 
 const aldi = `
@@ -129,6 +20,8 @@ SWINDON 2
 728578 ALCAFE DG PODS 5.38 A
 62031 Cereal Crisp 1.59 A
 827626 OIL EXTRA VIRGIN 6.79 A
+737354 BASMATI RICE 5KG 6.99 A
+728411 6X2L STILL WATER 2.29 B
 `;
 
 const sainsburys = `
@@ -143,6 +36,9 @@ ORIGINAL PRICE £2.15
 JS S/SKIM MLK 3.408L £1.83
 *KINDER BUENO £1.00
 TTD GRAPES CC 400G £2.50
+JSBABYCORN £1.32
+BROCCOLI LOOSE 0.250 kg @ £2.19/kg £0.55
+BP PAIN AU CHOC X6 £1.90
 `;
 
 console.log("Morrisons:", JSON.stringify(parseExtractedText(morrisons), null, 2));
